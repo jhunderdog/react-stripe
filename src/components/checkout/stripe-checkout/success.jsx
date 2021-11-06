@@ -4,8 +4,13 @@ import Layout from '../../shared/layout';
 import { CartContext } from '../../../context/cart-context';
 
 const Success = ({ history }) => {
-    const { clearCart } = useContext(CartContext);
-    useEffect(clearCart, []);
+    const { clearCart, cartItems } = useContext(CartContext);
+    useEffect(()=> {
+        if (cartItems.length !==0) {
+            clearCart();
+        }
+    }
+     ,[clearCart, cartItems]);
 
     return (
         <Layout>
