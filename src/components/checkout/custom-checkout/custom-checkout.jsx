@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { withRouter } from 'react-router-dom';
 import { 
     CardNumberElement,
@@ -10,10 +10,53 @@ import {
 
 import { fetchFromAPI } from '../../../helpers';
 
-const CustomCheckout = () => {
+const CustomCheckout = ({ shipping, cartItems , history: { push }}) => {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);
+    const [clientSecret, setClientSecret] = useState(null);
+    const stripe = useStripe();
     const elements = useElements();
+
+    useEffect(() => {
+        const items = cartItems.map(item => ({price: item.price, quantity: item.quantity}))
+        console.log(items);
+        if (shipping){
+            const body = {
+                cartItems: items,
+                shipping: {
+                    name: shipping.name,
+                    address: {
+                        line1: shipping.address
+                    }
+                },
+                description: 'payment intent for nomad shop',
+                receipt_email: shipping.email,
+            }
+            const customCheckout = async ()=> {
+                const { clientSecret } = await fetchFromAPI('create-payment-intent', {
+                    body
+                });
+
+                setClientSecret(clientSecret);
+            }
+            customCheckout()
+        }
+    }, [shipping, cartItems]);
+
+    const handleCheckout = async () => {
+        setProcessing(true);
+        const payload = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: {
+                card: elements.getElement(CardNumberElement)
+            }
+        });
+        if(payload.error){
+            setError(`Payment Failed: ${payload.error.message}`);
+        } else {
+            push('/success');
+        }
+
+    }
     const cardHandleChange = event => {
         const { error } = event;
         setError(error ? error.message: ''); 
@@ -79,4 +122,4 @@ const CustomCheckout = () => {
     );
 }
 
-export default CustomCheckout;
+export default withRouter(CustomCheckout);
