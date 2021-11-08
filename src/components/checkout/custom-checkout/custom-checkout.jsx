@@ -19,6 +19,7 @@ const CustomCheckout = ({ shipping, cartItems , history: { push }}) => {
     const [cards, setCards] = useState(null);
     const [payment, setPaymentCard] = useState('');
     const [saveCard, setSavedCard] = useState(false);
+    const [paymentIntentId, setPaymentIntentId] = useState(null);
     const stripe = useStripe();
     const elements = useElements();
 
@@ -51,11 +52,12 @@ const CustomCheckout = ({ shipping, cartItems , history: { push }}) => {
                 receipt_email: shipping.email,
             }
             const customCheckout = async ()=> {
-                const { clientSecret } = await fetchFromAPI('create-payment-intent', {
+                const { clientSecret, id } = await fetchFromAPI('create-payment-intent', {
                     body
                 });
 
                 setClientSecret(clientSecret);
+                setPaymentIntentId(id);
             }
             customCheckout()
         }
@@ -92,6 +94,24 @@ const CustomCheckout = ({ shipping, cartItems , history: { push }}) => {
             
         }
 
+    }
+    const savedCardCheckout = async () => {
+        setProcessing(true);
+        // update the payment intent to include the customer parameter
+        const { clientSecret } = await fetchFromAPI('update-payment-intent', {
+            body: { paymentIntentId }, method: 'PUT',
+        });
+
+        const payload = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: payment,
+        });
+
+        if (payload.error) {
+            setError(`Payment Failed: ${payload.error.message}`);
+            setProcessing(false);
+        } else {
+            push('/success');
+        }
     }
     const cardHandleChange = event => {
         const { error } = event;
@@ -142,7 +162,7 @@ const CustomCheckout = ({ shipping, cartItems , history: { push }}) => {
                     type='submit'
                     disabled={processing || !payment}
                     className='button is-black nomad-btn submit saved-card-btn'
-                    onClick={() => {}}
+                    onClick={() => savedCardCheckout()}
                     >
                     {processing ? 'PROCESSING': 'PAY WITH SAVED CARD'}
                     </button>
